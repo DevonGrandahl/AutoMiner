@@ -1,6 +1,8 @@
 <html>
 	<script src="perlin.js"></script>
 	<script>
+		var mineData = [];
+		
 		var smoothness = 15; // Noise Scale. Lower numbers give more peaks.
 		var cellSize = 20;
 		var mineWidth = 20;
@@ -9,8 +11,11 @@
 		var currentRowOffset = 0;
 		var maxDisplayRows = 30;
 		
-		var mineData = [];
 		var tableString = "";
+		var table;
+		var character;
+		
+		var walkSpeed = 1;
 		
 		var tileTypes = [
 			{name: 'Dirt', color: '#52240c', value: 1, rarity: 0, minDepth: 0, maxDepth: 999},
@@ -27,7 +32,15 @@
 		];
 		
 		function getTypeFromName(name){
-			return tileTypes.find( (e) => {return e.name == name;} )
+			return tileTypes.find( (e) => {return e.name == name;} );
+		}
+		
+		function init(){
+			table = document.getElementById("table");
+			character = document.getElementById("character");
+			generateMine();
+			drawTable();
+			startAI();
 		}
 		
 		function generateMine(){
@@ -43,12 +56,11 @@
 							h <= type.maxDepth && 
 							Math.abs(noise.simplex2(h / smoothness, w / smoothness)) >= type.rarity
 						){
-							mineData[h][w] = {h: h, w: w, type: type, empty: false};
+							mineData[h][w] = {id: h + "_" + w, h: h, w: w, type: type, empty: false};
 						}
 					}
 				}
 			});
-			drawTable();
 		}
 
 		function drawTable(){
@@ -96,6 +108,7 @@
 		
 		function handleClick(h, w){
 			Dig(h, w);
+			moveCharacter(h + "_" + w);
 			
 			if (h >= currentRowOffset + maxDisplayRows - 2){
 				changeOffset(1);
@@ -120,13 +133,83 @@
 		function clamp(min, max, val){
 			return Math.min(Math.max(val, min), max);
 		}
+		
+		function startAI(){
+			//chooseNextAIAction();
+		}
+		
+
+		function getCharacterDistanceToTile(h, w){
+			var tile = document.getElementById(h + "_" + w);
+			distX = tile.offsetLeft - character.offsetLeft;
+			distY = tile.offsetTop - character.offsetTop;
+			distance = Math.sqrt(distX*distX + distY*distY);
+			return distance;
+		}
+		
+		function moveCharacter(tileId){
+			var tileElement = document.getElementById(tileId);
+			
+			var posY = character.offsetTop - 20;
+			var posX = character.offsetLeft;
+			var interval = setInterval(frame, 10);
+			function frame() {
+				if (!document.body.contains(tileElement)){
+					tileElement = document.getElementById(tileId);
+				}
+				
+				// Check if we are at the tile
+				if (checkPosition(posX, tileElement.offsetLeft, posY, tileElement.offsetTop)) {
+					clearInterval(interval);
+					/*setTimeout(function() {
+						actOnTile(tile);
+						chooseNextAIAction();
+						drawInfoString();
+					}, workSpeed); */
+					
+				} else {
+					if (posY < tileElement.offsetTop){
+						character.style.top = (posY += walkSpeed) ;
+					} else if (posY > tileElement.offsetTop){
+						character.style.top = (posY -= walkSpeed);
+					}
+					 
+					if (posX < tileElement.offsetLeft){
+						character.style.left = (posX += walkSpeed);
+					} else if (posX > tileElement.offsetLeft){
+						character.style.left = (posX -= walkSpeed);
+					}
+				}
+			}	
+		}
+		
+		function checkPosition(x, x2, y, y2){
+			return (Math.abs(x - x2) + Math.abs(y-y2)) < (walkSpeed + .1);
+		}
 	
 		
 		
 	</script>
-	<body onload="generateMine();">
+	<style>		
+		.character {
+			position: fixed;
+			top: 0px;
+			left: 200px;
+			z-index: 2;
+			color: #FFFFFF;
+			font-size: 16pt;
+			font-weight: bold;
+			padding-top: 2px;
+			padding-left: 12px;
+			pointer-events:none;
+		}
+	</style>
+	<body style="overflow: hidden;" onload="init();">
+		<div>
+			<span id="points" class="points">Gold: 0g</span>
+		</div>
 		<table cellspacing="0" style="padding:0px; background-color: #200701" id="table">
 		</table>
-		
+		<p id="character" class="character">■</p>
 	</body>
 </html>
