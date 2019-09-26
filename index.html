@@ -2,15 +2,17 @@
 	<script src="perlin.js"></script>
 	<script>
 		var smoothness = 15; // Noise Scale. Lower numbers give more peaks.
-		var size = 40; // Grid Size
+		var size = 60; // Grid Size
 		
 		var mineData = [];
 		var tableString = "";
 		
 		var tileTypes = [
-			{name: 'Dirt', color: '#7e6b5c', value: 0, rarity: 0, minDepth: 0, maxDepth: 99},
-			{name: 'Copper', color: '#da8a67', value: 1, rarity: .8, minDepth: 3, maxDepth: 8},
-			{name: 'Silver', color: '#bbbbcc', value: 2, rarity: .85, minDepth: 20, maxDepth: 99},
+			{name: 'Dirt', color: '#52240c', value: 0, rarity: 0, minDepth: 0, maxDepth: 99},
+			{name: 'DarkDirt', color: '#502008', value: 0, rarity: .6, minDepth: 0, maxDepth: 99},
+			{name: 'EmptyDirt', color: '#200701', value: 0, rarity: 1, minDepth: 0, maxDepth: 99},
+			{name: 'Copper', color: '#da8a67', value: 1, rarity: .8, minDepth: 3, maxDepth: 16},
+			{name: 'Silver', color: '#bbbbcc', value: 2, rarity: .88, minDepth: 20, maxDepth: 99},
 			{name: 'Gold', color: '#cccc33', value: 3, rarity: .9, minDepth: 30, maxDepth: 99},
 			{name: 'Diamond', color: '#cfe4ee', value: 5, rarity: .96, minDepth: 35, maxDepth: 99}
 		];
@@ -42,12 +44,23 @@
 			for (var x = 0; x < size; x++) {
 			  for (var y = 0; y < size; y++) {
 				type = mineData[x][y];
-				tableString += "<td style='width: 10px; height: 10px; background: " + type.color + "'>" + "" + "</td>";
+				tableString += getCellString(type);
 			  }
 			  tableString += "</tr><tr>";
 			}
 			tableString+= "</tr>";
 			document.getElementById("table").innerHTML = tableString;
+		}
+		
+		function getCellString(type){
+			//return "<td style='width: 10px; height: 10px; background: " + type.color + "'>" + "" + "</td>";
+			var styleString = "'width: 10px; height: 10px; background-color: " + type.color + ";'"
+			return "<td" + 
+			" style=" + styleString +
+			" title='" + type.name + "'" +
+			">" +
+			" " + 
+			"</td>";
 		}
 	
 		
