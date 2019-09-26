@@ -2,21 +2,28 @@
 	<script src="perlin.js"></script>
 	<script>
 		var smoothness = 15; // Noise Scale. Lower numbers give more peaks.
-		var width = 20;
-		var height = 30;
+		var cellSize = 20;
+		var mineWidth = 20;
+		var mineHeight = 500;
+		
+		var currentRowOffset = 0;
+		var maxDisplayRows = 30;
 		
 		var mineData = [];
 		var tableString = "";
 		
 		var tileTypes = [
-			{name: 'Dirt', color: '#52240c', value: 1, rarity: 0, minDepth: 0, maxDepth: 99},
-			{name: 'DarkDirt', color: '#502008', value: 1, rarity: .6, minDepth: 0, maxDepth: 99},
-			{name: 'EmptyDirt', color: '#200701', value: 1, rarity: 1, minDepth: 0, maxDepth: 99},
+			{name: 'Dirt', color: '#52240c', value: 1, rarity: 0, minDepth: 0, maxDepth: 999},
+			{name: 'DarkDirt', color: '#502008', value: 1, rarity: .6, minDepth: 0, maxDepth: 999},
 			{name: 'Grass', color: '#6cd900', value: 0, rarity: 0, minDepth: 0, maxDepth: 0},
-			{name: 'Copper', color: '#da8a67', value: 1, rarity: .8, minDepth: 3, maxDepth: 16},
-			{name: 'Silver', color: '#bbbbcc', value: 2, rarity: .88, minDepth: 20, maxDepth: 99},
-			{name: 'Gold', color: '#cccc33', value: 3, rarity: .9, minDepth: 30, maxDepth: 99},
-			{name: 'Diamond', color: '#cfe4ee', value: 5, rarity: .96, minDepth: 35, maxDepth: 99}
+			//valuables
+			{name: 'Coal', color: '#313140', value: 1, rarity: .8, minDepth: 6, maxDepth: 300},
+			{name: 'Copper', color: '#da8a67', value: 2, rarity: .83, minDepth: 27, maxDepth: 300},
+			{name: 'Silver', color: '#bbbbcc', value: 3, rarity: .88, minDepth: 120, maxDepth: 330},
+			{name: 'Gold', color: '#cccc33', value: 4, rarity: .87, minDepth: 250, maxDepth: 500},
+			{name: 'Diamond', color: '#cfe4ee', value: 6, rarity: .96, minDepth: 400, maxDepth: 500},
+			{name: 'Verderald', color: '#26ff5c', value: 8, rarity: .96, minDepth: 450, maxDepth: 500},
+			{name: 'Bedrock', color: '#0f0f1e', value: 0, rarity: 0, minDepth: 497, maxDepth: 999}
 		];
 		
 		function getTypeFromName(name){
@@ -26,17 +33,17 @@
 		function generateMine(){
 			tileTypes.forEach( (type) => {
 				noise.seed(Math.random());
-				for (var h = 0; h < height; h++) {
+				for (var h = 0; h < mineHeight; h++) {
 					if (!mineData[h]){
 						mineData[h] = [];
 					}
 					
-					for (var w = 0; w < width; w++) {
+					for (var w = 0; w < mineWidth; w++) {
 						if (h >= type.minDepth && 
 							h <= type.maxDepth && 
 							Math.abs(noise.simplex2(h / smoothness, w / smoothness)) >= type.rarity
 						){
-							mineData[h][w] = type;
+							mineData[h][w] = {h: h, w: w, type: type, empty: false};
 						}
 					}
 				}
@@ -47,10 +54,10 @@
 		function drawTable(){
 			tableString = "<tr>";
 
-			for (var h = 0; h < height; h++) {
-			  for (var w = 0; w < width; w++) {
-				type = mineData[h][w];
-				tableString += getCellString(h, w, type);
+			for (var h = currentRowOffset; h < currentRowOffset + maxDisplayRows - 1; h++) {
+			  for (var w = 0; w < mineWidth; w++) {
+				tileData = mineData[h][w];
+				tableString += getCellString(tileData);
 			  }
 			  tableString += "</tr><tr>";
 			}
@@ -58,29 +65,68 @@
 			document.getElementById("table").innerHTML = tableString;
 		}
 		
-		function getCellString(h, w, type){
-			//return "<td style='width: 10px; height: 10px; background: " + type.color + "'>" + "" + "</td>";
-			var styleString = "width: 20px; height: 20px; background-color: " + type.color + "; color: white"
+		function getCellString(tileData){
 			return "<td" + 
-			" id='" + h + "_" + w + "'" +
-			" style='" + styleString + "'" +
-			" title='" + type.name + "'" +
-			" onClick='handleClick(" + h + ", " + w + ")'" +
+			" id='" + tileData.h + "_" + tileData.w + "'" +
+			" style='" + getStyle(tileData) + "'" +
+			" title='" + tileData.type.name + "'" +
+			" onClick='handleClick(" + tileData.h + ", " + tileData.w + ")'" +
 			">" +
 			'' + 
 			"</td>";
 		}
 		
+		function getStyle(tileData){
+			var styleObject = {};
+			styleObject['width'] = cellSize + "px";
+			styleObject['height'] = cellSize + "px";
+			styleObject['opacity'] = tileData.empty ? ".1" : "1";
+			styleObject['background-color'] = tileData.type.color;
+			styleObject['color'] = "white";
+			styleObject['background-image'] = 'url(data:image/png;base64,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)';
+
+			
+			var styleString;
+			styleString = Object.entries(styleObject).reduce((styleString, [propName, propValue]) => {
+				return `${styleString}${propName}:${propValue};`;
+			}, '')
+			
+			return styleString;
+		}
+		
 		function handleClick(h, w){
-			mineData[h][w] = getTypeFromName("EmptyDirt");
+			Dig(h, w);
+			
+			if (h >= currentRowOffset + maxDisplayRows - 2){
+				changeOffset(1);
+			}
+			
+			if (h < currentRowOffset + 2){
+				changeOffset(-1);
+			}
+			
 			drawTable();
+		}
+		
+		function Dig(h, w){
+			mineData[h][w].empty = true;
+		}
+		
+		function changeOffset(amount) {
+			currentRowOffset = clamp(0, mineHeight - maxDisplayRows, currentRowOffset + amount);
+			drawTable();
+		}
+		
+		function clamp(min, max, val){
+			return Math.min(Math.max(val, min), max);
 		}
 	
 		
 		
 	</script>
 	<body onload="generateMine();">
-		<table cellspacing="0" style="padding:0px;" id="table">
+		<table cellspacing="0" style="padding:0px; background-color: #200701" id="table">
 		</table>
+		
 	</body>
 </html>
