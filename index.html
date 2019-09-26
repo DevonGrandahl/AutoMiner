@@ -1,0 +1,60 @@
+<html>
+	<script src="perlin.js"></script>
+	<script>
+		var smoothness = 15; // Noise Scale. Lower numbers give more peaks.
+		var size = 40; // Grid Size
+		
+		var mineData = [];
+		var tableString = "";
+		
+		var tileTypes = [
+			{name: 'Dirt', color: '#7e6b5c', value: 0, rarity: 0, minDepth: 0, maxDepth: 99},
+			{name: 'Copper', color: '#da8a67', value: 1, rarity: .8, minDepth: 3, maxDepth: 8},
+			{name: 'Silver', color: '#bbbbcc', value: 2, rarity: .85, minDepth: 20, maxDepth: 99},
+			{name: 'Gold', color: '#cccc33', value: 3, rarity: .9, minDepth: 30, maxDepth: 99},
+			{name: 'Diamond', color: '#cfe4ee', value: 5, rarity: .96, minDepth: 35, maxDepth: 99}
+		];
+		
+		function generateMine(){
+			tileTypes.forEach( (type) => {
+				noise.seed(Math.random());
+				for (var x = 0; x < size; x++) {
+					if (!mineData[x]){
+						mineData[x] = [];
+					}
+					
+					for (var y = 0; y < size; y++) {
+						if (x >= type.minDepth && 
+							x <= type.maxDepth && 
+							Math.abs(noise.simplex2(x / smoothness, y / smoothness)) >= type.rarity
+						){
+							mineData[x][y] = type;
+						}
+					}
+				}
+			});
+			drawTable();
+		}
+
+		function drawTable(){
+			tableString = "<tr>";
+
+			for (var x = 0; x < size; x++) {
+			  for (var y = 0; y < size; y++) {
+				type = mineData[x][y];
+				tableString += "<td style='width: 10px; height: 10px; background: " + type.color + "'>" + "" + "</td>";
+			  }
+			  tableString += "</tr><tr>";
+			}
+			tableString+= "</tr>";
+			document.getElementById("table").innerHTML = tableString;
+		}
+	
+		
+		
+	</script>
+	<body onload="generateMine();">
+		<table cellspacing="0" style="padding:0px;" id="table">
+		</table>
+	</body>
+</html>
