@@ -3,36 +3,37 @@
 	<script>
 		var mineData = [];
 		
-		var smoothness = 15; // Noise Scale. Lower numbers give more peaks.
-		var cellSize = 20;
-		var mineWidth = 20;
-		var mineHeight = 500;
+		// Object that acts like a dictionary to store the tiles that have been cleared.
+		var clearedTiles = {};
 		
-		var currentRowOffset = 0;
-		var maxDisplayRows = 30;
+		var defaultSmoothness = 15; // Noise Scale. Lower numbers give more peaks.
+		
+		var mineWidth = 20;
+		var chunkHeight = 10;
+		var chunksOnScreen = 3;
+		
+		var topChunkIndex = 0;
 		
 		var tableString = "";
 		var table;
 		var character;
 		
 		var walkSpeed = 1;
-		var currentH;
-		var currentW;
 		
 		var points = 0;
 		
+		var seed = 0;
+		
 		var tileTypes = [
-			{name: 'Dirt', color: '#52240c', value: 0, rarity: 0, minDepth: 0, maxDepth: 999},
-			{name: 'DarkDirt', color: '#502008', value: 0, rarity: .6, minDepth: 0, maxDepth: 999},
+			{name: 'Dirt', color: '#52240c', value: 0, rarity: 0, minDepth: 0, maxDepth: -1},
+			{name: 'DarkDirt', color: '#502008', value: 0, rarity: .6, minDepth: 0, maxDepth: -1},
 			{name: 'Grass', color: '#6cd900', value: 0, rarity: 0, minDepth: 0, maxDepth: 0},
 			//valuables
-			{name: 'Coal', color: '#313140', value: 1, rarity: .8, minDepth: 6, maxDepth: 300},
-			{name: 'Copper', color: '#da8a67', value: 2, rarity: .83, minDepth: 27, maxDepth: 300},
+			{name: 'Coal', color: '#313140', value: 1, rarity: .8, minDepth: 3, maxDepth: 120},
+			{name: 'Copper', color: '#da8a67', value: 2, rarity: .83, minDepth: 15, maxDepth: 300},
 			{name: 'Silver', color: '#bbbbcc', value: 3, rarity: .88, minDepth: 120, maxDepth: 330},
-			{name: 'Gold', color: '#cccc33', value: 4, rarity: .87, minDepth: 250, maxDepth: 500},
-			{name: 'Diamond', color: '#cfe4ee', value: 6, rarity: .96, minDepth: 400, maxDepth: 500},
-			{name: 'Verderald', color: '#26ff5c', value: 8, rarity: .96, minDepth: 450, maxDepth: 500},
-			{name: 'Bedrock', color: '#0f0f1e', value: 0, rarity: 0, minDepth: 497, maxDepth: 999}
+			{name: 'Gold', color: '#cccc33', value: 4, rarity: .87, minDepth: 250, maxDepth: 500, smoothness: 20},
+			{name: 'Diamond', color: '#a9cfe1', value: 6, rarity: .96, minDepth: 400, maxDepth: 550, smoothness: 10},
 		];
 		
 		function getTypeFromName(name){
@@ -40,6 +41,8 @@
 		}
 		
 		function init(){
+			seed = randomRange(0, 100);
+			
 			table = document.getElementById("table");
 			character = document.getElementById("character");
 			generateMine();
@@ -47,30 +50,53 @@
 			startAI();
 		}
 		
-		function generateMine(){
-			tileTypes.forEach( (type) => {
-				noise.seed(Math.random());
-				for (var h = 0; h < mineHeight; h++) {
+		// Generate the mine data from the top of the top chunk to the bottom of the last chunk
+		function generateMine(startingChunk = topChunkIndex, endingChunk = (topChunkIndex + chunksOnScreen) ){
+			tileTypes.forEach( (type, index) => {
+				startingRow = startingChunk * chunkHeight;
+				endingRow = (endingChunk * chunkHeight) + chunkHeight;
+				
+				// If this tileType isn't in our range, skip it and continue the foreach
+				if (type.minDepth > endingRow || (type.maxDepth != -1 && type.maxDepth < startingRow)){
+					return;
+				}
+				
+				noise.seed(seed * index);
+				
+				var smoothness = type.smoothness || defaultSmoothness;
+				
+				
+				for (var h = startingRow; h < endingRow; h++) {
 					if (!mineData[h]){
 						mineData[h] = [];
 					}
 					
 					for (var w = 0; w < mineWidth; w++) {
 						if (h >= type.minDepth && 
-							h <= type.maxDepth && 
+							(h <= type.maxDepth || type.maxDepth == -1) && 
 							Math.abs(noise.simplex2(h / smoothness, w / smoothness)) >= type.rarity
 						){
-							mineData[h][w] = {id: h + "_" + w, h: h, w: w, type: type, empty: false};
+							var tileId = h + "_" + w;
+							var tileCleared = !!clearedTiles[tileId];
+							mineData[h][w] = {id: tileId, h: h, w: w, type: type, empty: tileCleared};
 						}
 					}
 				}
 			});
 		}
-
+		
 		function drawTable(){
+			document.getElementById("table").innerHTML = generateTableString();
+		}
+
+		// Generate the HTML table based on the mine data
+		function generateTableString(startingChunk = topChunkIndex, endingChunk = (topChunkIndex + chunksOnScreen) ){
 			tableString = "<tr>";
 
-			for (var h = currentRowOffset; h < currentRowOffset + maxDisplayRows - 1; h++) {
+			startingRow = startingChunk * chunkHeight;
+			endingRow = (endingChunk * chunkHeight) + chunkHeight;
+
+			for (var h = startingRow; h < endingRow; h++) {
 			  for (var w = 0; w < mineWidth; w++) {
 				tileData = mineData[h][w];
 				tableString += getCellString(tileData);
@@ -78,13 +104,14 @@
 			  tableString += "</tr><tr>";
 			}
 			tableString+= "</tr>";
-			document.getElementById("table").innerHTML = tableString;
+			return tableString;
 		}
 		
 		function getCellString(tileData){
 			return "<td" + 
 			" id='" + tileData.h + "_" + tileData.w + "'" +
-			" style='" + getStyle(tileData) + "'" +
+			" class='tile' " +
+			" style='background-color:" + tileData.type.color + "; opacity:" + (tileData.empty ? '.12' : '1') + "'" +
 			" title='" + tileData.type.name + "'" +
 			" onClick='handleClick(" + tileData.h + ", " + tileData.w + ")'" +
 			">" +
@@ -92,67 +119,80 @@
 			"</td>";
 		}
 		
-		function getStyle(tileData){
-			var styleObject = {};
-			styleObject['width'] = cellSize + "px";
-			styleObject['height'] = cellSize + "px";
-			styleObject['opacity'] = tileData.empty ? ".1" : "1";
-			styleObject['background-color'] = tileData.type.color;
-			styleObject['color'] = "white";
-			styleObject['background-image'] = 'url(data:image/png;base64,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)';
-
+		function scrollChunks(amount) {
+			topChunkIndex += amount;
 			
-			var styleString;
-			styleString = Object.entries(styleObject).reduce((styleString, [propName, propValue]) => {
-				return `${styleString}${propName}:${propValue};`;
-			}, '')
+			// Do we need to generate mre ores?
+			var bottomRow = ((topChunkIndex + chunksOnScreen) * chunkHeight) + chunkHeight;
+			if (bottomRow > tileTypes[tileTypes.length - 1].minDepth + chunkHeight){
+				// Generate 3 random ores
+				var newTypes = [];
+				newTypes.push(generateOreType());
+				newTypes.push(generateOreType());
+				newTypes.push(generateOreType());
+				tileTypes = tileTypes.concat(newTypes);
+			}
 			
-			return styleString;
-		}
-		
-		function handleClick(h, w){
-			Dig(h, w);
-		}
-		
-		function Dig(h, w){
-			mineData[h][w].empty = true;
-			points += mineData[h][w].type.value;
-			document.getElementById("points").innerHTML = "Points: " + points;
+			
+			generateMine(topChunkIndex, topChunkIndex + chunksOnScreen);
 			drawTable();
 		}
 		
-		function changeOffset(amount) {
-			currentRowOffset = clamp(0, mineHeight - maxDisplayRows, currentRowOffset + amount);
-			drawTable();
+		function generateOreType(){
+			var prefixes = ["Oman", "Verd", "Romb", "Cand", "Faux", "Ameth", "Saph", "Rub", "Orichalch", "Ragnar", "Nyc"];
+			var suffixes = ["yst", "ion", "ium", "ite", "onite", "itate"];
+			var name = prefixes[randomRange(0, prefixes.length - 1)] + suffixes[randomRange(0, suffixes.length - 1)];
+			var color = getRandomColor();
+			var value = tileTypes.length;			
+			
+			var bottomRow = ((topChunkIndex + chunksOnScreen) * chunkHeight) + chunkHeight;
+			var minDepth = randomRange(bottomRow - chunkHeight, bottomRow + 20);
+			var maxDepth = randomRange(minDepth + 10, minDepth + 200);
+			
+			return {name: name, color: color, value: value, rarity: randomRange(.7, .99, false), minDepth: minDepth, maxDepth: maxDepth, smoothness: randomRange(7, 22)};
 		}
 		
-		function clamp(min, max, val){
-			return Math.min(Math.max(val, min), max);
-		}
+		/****
+		 AI
+		****/
 		
 		function startAI(){
-			moveCharacter("0_" + (mineWidth / 2));
+			moveCharacter(0, (mineWidth / 2), chooseNextAIAction);
 		}
 		
-
-		function getCharacterDistanceToTile(h, w){
-			var tile = document.getElementById(h + "_" + w);
-			distX = tile.offsetLeft - character.offsetLeft;
-			distY = tile.offsetTop - character.offsetTop;
-			distance = Math.sqrt(distX*distX + distY*distY);
-			return distance;
+		function chooseNextAIAction(h, w){
+			var r = Math.random();
+				
+			if (r > .8 && w < mineWidth - 1){
+				moveCharacter(h, (w + 1), chooseNextAIAction);
+			} else if (r > .6 && w > 0){
+				moveCharacter(h, (w - 1), chooseNextAIAction);
+			} else if (r > .45 && h > 0){
+				moveCharacter((h - 1), w, chooseNextAIAction);
+			} else {
+				moveCharacter((h + 1), w, chooseNextAIAction);
+			}
 		}
 		
-		function moveCharacter(tileId){
-			console.log(tileId);
-			var tileElement = document.getElementById(tileId);
+		function moveCharacter(h, w, doneCallback){
 			
 			var posY = character.offsetTop - 20;
 			var posX = character.offsetLeft;
 			var interval = setInterval(frame, 10);
+			
+			var tileElement;
+			
 			function frame() {
-				if (!document.body.contains(tileElement)){
-					tileElement = document.getElementById(tileId);
+				if (!tileElement){
+					tileElement = document.getElementById(h + "_" + w);
+				}
+				
+				// We have really lost our way. Log an error and restart the AI loop.
+				if (!tileElement){
+					console.log("The tile we were moving to has disappeared!");
+					doneCallback((topChunkIndex * chunkHeight) + 1, w);
+					clearInterval(interval);
+					return;
 				}
 				
 				// Check if we are at the tile
@@ -164,34 +204,24 @@
 						drawInfoString();
 					}, workSpeed); */
 					
+					// region Check Scrolling
+					topRow = topChunkIndex * chunkHeight;
+					bottomRow = ((topChunkIndex + chunksOnScreen) * chunkHeight) + chunkHeight;
 					
-					
-					currentH = parseInt(tileId.split("_")[0]);
-					currentW = parseInt(tileId.split("_")[1]);
-					
-					if (currentH >= currentRowOffset + maxDisplayRows - 2){
-						changeOffset(10);
-						character.style.top = document.getElementById(tileId).offsetTop;
+					if (h >= bottomRow - 1){
+						scrollChunks(1);
+						character.style.top = document.getElementById(h + "_" + w).offsetTop;
 					}
 					
-					if (currentH > 2 && currentH < currentRowOffset + 2){
-						changeOffset(-10);
-						character.style.top = document.getElementById(tileId).offsetTop;
+					if (h > 2 && h < topRow + 1){
+						scrollChunks(-1);
+						character.style.top = document.getElementById(h + "_" + w).offsetTop;
 					}
+					// endregion Check Scrolling
 					
-					Dig(currentH, currentW);
+					Dig(h, w);
 					
-					var r = Math.random();
-					
-					if (r > .8 && currentW < mineWidth - 1){
-						moveCharacter(currentH + "_" + (currentW + 1));
-					} else if (r > .6 && currentW > 0){
-						moveCharacter(currentH + "_" + (currentW - 1));
-					} else if (r > .45 && currentH > 0){
-						moveCharacter((currentH - 1) + "_" + currentW);
-					} else {
-						moveCharacter((currentH + 1) + "_" + currentW);
-					}
+					doneCallback(h, w);
 					
 					
 					
@@ -211,11 +241,70 @@
 			}	
 		}
 		
+		function Dig(h, w){
+			if (!mineData[h][w].empty){
+				points += mineData[h][w].type.value;
+				document.getElementById("points").innerHTML = "Points: " + points;
+				clearedTiles[mineData[h][w].id] = true;
+			}
+		
+			mineData[h][w].empty = true;
+			drawTable();
+		}
+		
+	
+		/****
+		 Utils and Etc.
+		****/
+		
 		function checkPosition(x, x2, y, y2){
 			return (Math.abs(x - x2) + Math.abs(y-y2)) < (walkSpeed + .1);
 		}
-	
 		
+		function clamp(min, max, val){
+			return Math.min(Math.max(val, min), max);
+		}
+		
+		function randomRange(min, max, whole = true){
+			var randomNumber;
+			
+			if (whole){
+				min = Math.ceil(min);
+				max = Math.floor(max);
+				return Math.floor(Math.random() * (max - min + 1)) + min;
+			} else {
+				return Math.random() * (max - min) + min;
+			}
+		}
+		
+		function handleClick(h, w){
+			Dig(h, w);
+		}
+		
+		function getRandomColor(){
+			return '#'+(Math.random()*0xFFFFFF<<0).toString(16);
+		}
+		
+		// https://stackoverflow.com/questions/1484506
+		function getRandomVibrantColor() {
+			var numOfRandomColors = 64;
+			
+			var r, g, b;
+			var h = Math.random() * numOfRandomColors;
+			var i = ~~(h * 6);
+			var f = h * 6 - i;
+			var q = 1 - f;
+			switch(i % 6){
+				case 0: r = 1; g = f; b = 0; break;
+				case 1: r = q; g = 1; b = 0; break;
+				case 2: r = 0; g = 1; b = f; break;
+				case 3: r = 0; g = q; b = 1; break;
+				case 4: r = f; g = 0; b = 1; break;
+				case 5: r = 1; g = 0; b = q; break;
+			}
+			var c = "#" + ("00" + (~ ~(r * 200)).toString(16)).slice(-2) + ("00" + (~ ~(g * 200)).toString(16)).slice(-2) + ("00" + (~ ~(b * 200)).toString(16)).slice(-2);
+			return (c);
+		}
 		
 	</script>
 	<style>		
@@ -230,6 +319,15 @@
 			padding-top: 2px;
 			padding-left: 12px;
 			pointer-events:none;
+		}
+		
+		.tile {
+			width: 20px;
+			height: 20px;
+			opacity: 1;
+			background-color: black;
+			color: white;
+			background-image: url(data:image/png;base64,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);
 		}
 	</style>
 	<body style="overflow: hidden;" onload="init();">
