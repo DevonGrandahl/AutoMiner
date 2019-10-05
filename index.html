@@ -6,13 +6,17 @@
 		// Object that acts like a dictionary to store the tiles that have been cleared.
 		var clearedTiles = {};
 		
+		var backpack = [];
+		var backpackSize = 20;
+		
 		var defaultSmoothness = 15; // Noise Scale. Lower numbers give more peaks.
 		
 		var mineWidth = 20;
-		var chunkHeight = 10;
+		var chunkHeight = 8;
 		var chunksOnScreen = 3;
 		
 		var topChunkIndex = 0;
+		var deepestChunkIndex = 0;
 		
 		var tableString = "";
 		var table;
@@ -25,15 +29,24 @@
 		var seed = 0;
 		
 		var tileTypes = [
-			{name: 'Dirt', color: '#52240c', value: 0, rarity: 0, minDepth: 0, maxDepth: -1},
-			{name: 'DarkDirt', color: '#502008', value: 0, rarity: .6, minDepth: 0, maxDepth: -1},
+			{name: 'Dirt', color: '#52240c', value: 0, rarity: 0, minDepth: 0, maxDepth: 1001},
+			{name: 'DarkDirt', color: '#4c1e07', value: 0, rarity: .6, minDepth: 0, maxDepth: 1001},
 			{name: 'Grass', color: '#6cd900', value: 0, rarity: 0, minDepth: 0, maxDepth: 0},
-			//valuables
-			{name: 'Coal', color: '#313140', value: 1, rarity: .8, minDepth: 3, maxDepth: 120},
-			{name: 'Copper', color: '#da8a67', value: 2, rarity: .83, minDepth: 15, maxDepth: 300},
+			{name: 'Stone', color: '#4d3c3c', value: 0, rarity: .9, minDepth: 3, maxDepth: 120, smoothness: 30},
+			
+			// Deep stuff
+			{name: 'DeepDirt', color: '#401c0a', value: 0, rarity: 0, minDepth: 1000, maxDepth: 2001},
+			{name: 'DeepDarkDirt', color: '#2f1406', value: 0, rarity: 0, minDepth: 1000, maxDepth: -1},
+			{name: 'DeepStone', color: '#2d2d3a', value: 0, rarity: .8, minDepth: 1000, maxDepth: -1},
+			{name: 'DeepDeepDirt', color: '#38000e', value: 0, rarity: 0, minDepth: 2000, maxDepth: 3001},
+			{name: 'Void', color: '#100004', value: 0, rarity: 0, minDepth: 3000, maxDepth: -1},
+			
+			// Ores
+			{name: 'Coal', color: '#1b1b23', value: 1, rarity: .8, minDepth: 3, maxDepth: 120},
+			{name: 'Copper', color: '#da8a67', value: 2, rarity: .83, minDepth: 12, maxDepth: 300},
 			{name: 'Silver', color: '#bbbbcc', value: 3, rarity: .88, minDepth: 120, maxDepth: 330},
-			{name: 'Gold', color: '#cccc33', value: 4, rarity: .87, minDepth: 250, maxDepth: 500, smoothness: 20},
-			{name: 'Diamond', color: '#a9cfe1', value: 6, rarity: .96, minDepth: 400, maxDepth: 550, smoothness: 10},
+			{name: 'Gold', color: '#cccc33', value: 4, rarity: .87, minDepth: 250, maxDepth: 450, smoothness: 20},
+			{name: 'Diamond', color: '#a9cfe1', value: 6, rarity: .96, minDepth: 400, maxDepth: 500, smoothness: 10},
 		];
 		
 		function getTypeFromName(name){
@@ -45,13 +58,19 @@
 			
 			table = document.getElementById("table");
 			character = document.getElementById("character");
-			generateMine();
+			mineData = generateMine();
 			drawTable();
 			startAI();
 		}
 		
 		// Generate the mine data from the top of the top chunk to the bottom of the last chunk
 		function generateMine(startingChunk = topChunkIndex, endingChunk = (topChunkIndex + chunksOnScreen) ){
+			var generatedMine = [];
+			
+			if (endingChunk > deepestChunkIndex){
+				deepestChunkIndex = endingChunk;
+			}
+			
 			tileTypes.forEach( (type, index) => {
 				startingRow = startingChunk * chunkHeight;
 				endingRow = (endingChunk * chunkHeight) + chunkHeight;
@@ -67,8 +86,8 @@
 				
 				
 				for (var h = startingRow; h < endingRow; h++) {
-					if (!mineData[h]){
-						mineData[h] = [];
+					if (!generatedMine[h]){
+						generatedMine[h] = [];
 					}
 					
 					for (var w = 0; w < mineWidth; w++) {
@@ -78,19 +97,45 @@
 						){
 							var tileId = h + "_" + w;
 							var tileCleared = !!clearedTiles[tileId];
-							mineData[h][w] = {id: tileId, h: h, w: w, type: type, empty: tileCleared};
+							generatedMine[h][w] = {id: tileId, h: h, w: w, type: type, empty: tileCleared};
 						}
 					}
 				}
 			});
+			
+			return generatedMine;
 		}
 		
 		function drawTable(){
 			document.getElementById("table").innerHTML = generateTableString();
 		}
+		
+		function drawBackpack(){
+			var backpackString = "";
+			var backpackUILimit = 11;
+			backpack.forEach( (type, index) => {
+				if (index < backpackUILimit) {
+					backpackString += "<td class='backpackTile' style='background-color: " + type.color + "' title='" + type.name + "'></td>"
+				}
+			});
+			
+			if (backpack.length > backpackUILimit){
+				backpackString += "<td class='backpackTile' style='background-color: white; border: 1px solid black;' title='" + (backpack.length - backpackUILimit) + " not shown.'></td>";
+			}
+			
+			document.getElementById("backpackRow").innerHTML = backpackString;
+		}
+		
+		function drawMapTable(){
+			document.getElementById("mapTable").innerHTML = generateTableString(0, deepestChunkIndex, generateMine(0, deepestChunkIndex), true);
+		}
+		
+		function clearMapTable(){
+			document.getElementById("mapTable").innerHTML = "";
+		}
 
 		// Generate the HTML table based on the mine data
-		function generateTableString(startingChunk = topChunkIndex, endingChunk = (topChunkIndex + chunksOnScreen) ){
+		function generateTableString(startingChunk = topChunkIndex, endingChunk = (topChunkIndex + chunksOnScreen), mineData = this.mineData, readOnly = false ){
 			tableString = "<tr>";
 
 			startingRow = startingChunk * chunkHeight;
@@ -99,7 +144,7 @@
 			for (var h = startingRow; h < endingRow; h++) {
 			  for (var w = 0; w < mineWidth; w++) {
 				tileData = mineData[h][w];
-				tableString += getCellString(tileData);
+				tableString += getCellString(tileData, readOnly);
 			  }
 			  tableString += "</tr><tr>";
 			}
@@ -107,34 +152,36 @@
 			return tableString;
 		}
 		
-		function getCellString(tileData){
-			return "<td" + 
-			" id='" + tileData.h + "_" + tileData.w + "'" +
+		function getCellString(tileData, readOnly = false){
+			var cellString = "<td";
+			
+			if (!readOnly){
+				cellString += 
+				" id='" + tileData.h + "_" + tileData.w + "'" +
+				" title='" + tileData.type.name + "'";
+			}
+			
+			cellString += 
 			" class='tile' " +
-			" style='background-color:" + tileData.type.color + "; opacity:" + (tileData.empty ? '.12' : '1') + "'" +
-			" title='" + tileData.type.name + "'" +
-			" onClick='handleClick(" + tileData.h + ", " + tileData.w + ")'" +
+			" style='background-color:" + tileData.type.color + "; opacity:" + (tileData.empty ? '.12' : '1') + "; '" +
 			">" +
 			'' + 
 			"</td>";
+			
+			return cellString;
 		}
 		
 		function scrollChunks(amount) {
 			topChunkIndex += amount;
-			
-			// Do we need to generate mre ores?
 			var bottomRow = ((topChunkIndex + chunksOnScreen) * chunkHeight) + chunkHeight;
-			if (bottomRow > tileTypes[tileTypes.length - 1].minDepth + chunkHeight){
-				// Generate 3 random ores
-				var newTypes = [];
-				newTypes.push(generateOreType());
-				newTypes.push(generateOreType());
-				newTypes.push(generateOreType());
-				tileTypes = tileTypes.concat(newTypes);
+			
+			// Do we need to generate more ores?
+			if (Math.random() > .6 && bottomRow > 400){
+				tileTypes.push(generateOreType());
 			}
 			
 			
-			generateMine(topChunkIndex, topChunkIndex + chunksOnScreen);
+			mineData = generateMine(topChunkIndex, topChunkIndex + chunksOnScreen);
 			drawTable();
 		}
 		
@@ -143,13 +190,13 @@
 			var suffixes = ["yst", "ion", "ium", "ite", "onite", "itate"];
 			var name = prefixes[randomRange(0, prefixes.length - 1)] + suffixes[randomRange(0, suffixes.length - 1)];
 			var color = getRandomColor();
-			var value = tileTypes.length;			
+			var value = tileTypes.length;
 			
 			var bottomRow = ((topChunkIndex + chunksOnScreen) * chunkHeight) + chunkHeight;
 			var minDepth = randomRange(bottomRow - chunkHeight, bottomRow + 20);
 			var maxDepth = randomRange(minDepth + 10, minDepth + 200);
 			
-			return {name: name, color: color, value: value, rarity: randomRange(.7, .99, false), minDepth: minDepth, maxDepth: maxDepth, smoothness: randomRange(7, 22)};
+			return {name: name, color: color, value: value, rarity: randomRange(.75, .99, false), minDepth: minDepth, maxDepth: maxDepth, smoothness: randomRange(7, 22)};
 		}
 		
 		/****
@@ -160,14 +207,47 @@
 			moveCharacter(0, (mineWidth / 2), chooseNextAIAction);
 		}
 		
-		function chooseNextAIAction(h, w){
+		function chooseNextAIAction(h, w){		
+			if (h > 0 && backpack.length >= backpackSize){
+				moveUp(h, w);
+				return;
+			}
+		
+			var targetTile = findClosestValuedTile();
+			
+			if (targetTile){
+				moveTowardsTile(h, w, targetTile);
+			} else {
+				wander(h, w);
+			}
+		}
+		
+		function moveUp(h, w){
+			moveCharacter(h-1, w, chooseNextAIAction);
+		}
+		
+		function moveTowardsTile(h, w, targetTile){
+			if (targetTile.h > h){
+				moveCharacter(h+1, w, chooseNextAIAction)
+			} else if (targetTile.h < h){
+				moveCharacter(h-1, w, chooseNextAIAction)
+			} else if (targetTile.w > w){
+				moveCharacter(h, w+1, chooseNextAIAction)
+			} else if (targetTile.w < w){
+				moveCharacter(h, w-1, chooseNextAIAction)
+			} else {
+				wander(h, w);
+			}
+		}
+		
+		function wander(h, w){
 			var r = Math.random();
 				
-			if (r > .8 && w < mineWidth - 1){
+			if (r > .85 && w < mineWidth - 1){
 				moveCharacter(h, (w + 1), chooseNextAIAction);
-			} else if (r > .6 && w > 0){
+			} else if (r > .75 && w > 0){
 				moveCharacter(h, (w - 1), chooseNextAIAction);
-			} else if (r > .45 && h > 0){
+			} else if (r > .65 && h > 0){
 				moveCharacter((h - 1), w, chooseNextAIAction);
 			} else {
 				moveCharacter((h + 1), w, chooseNextAIAction);
@@ -221,35 +301,60 @@
 					
 					Dig(h, w);
 					
+					// If we are at the top, empty the backpack!
+					if (h == 0){
+						sellOre();
+					}
+					
 					doneCallback(h, w);
 					
 					
 					
 				} else {
+					var speed = walkSpeed;
+					if (!mineData[h][w].empty){
+						speed *= .5;
+						
+						if (mineData[h][w].type.value > 0){
+							speed *= .5;
+						}
+					} 
+					
+					
 					if (posY < tileElement.offsetTop){
-						character.style.top = (posY += walkSpeed) ;
+						character.style.top = (posY += speed) ;
 					} else if (posY > tileElement.offsetTop){
-						character.style.top = (posY -= walkSpeed);
+						character.style.top = (posY -= speed);
 					}
 					 
 					if (posX < tileElement.offsetLeft){
-						character.style.left = (posX += walkSpeed);
+						character.style.left = (posX += speed);
 					} else if (posX > tileElement.offsetLeft){
-						character.style.left = (posX -= walkSpeed);
+						character.style.left = (posX -= speed);
 					}
 				}
 			}	
 		}
 		
 		function Dig(h, w){
-			if (!mineData[h][w].empty){
-				points += mineData[h][w].type.value;
-				document.getElementById("points").innerHTML = "Points: " + points;
-				clearedTiles[mineData[h][w].id] = true;
+			if (!mineData[h][w].empty && mineData[h][w].type.value > 0){
+				backpack.push(mineData[h][w].type);
+				drawBackpack();
 			}
 		
+			clearedTiles[mineData[h][w].id] = true;
 			mineData[h][w].empty = true;
 			drawTable();
+		}
+		
+		function sellOre(){
+			backpack.forEach( (ore) => {
+				points += ore.value;
+			});
+			
+			backpack = [];
+			document.getElementById("points").innerHTML = "Points: " + points;
+			drawBackpack();
 		}
 		
 	
@@ -259,6 +364,28 @@
 		
 		function checkPosition(x, x2, y, y2){
 			return (Math.abs(x - x2) + Math.abs(y-y2)) < (walkSpeed + .1);
+		}
+		
+		function getCharacterDistanceToTile(h, w){
+			var mineTile = document.getElementById(h + "_" + w);
+			distX = mineTile.offsetLeft - character.offsetLeft;
+			distY = mineTile.offsetTop - character.offsetTop;
+			distance = Math.sqrt(distX*distX + distY*distY);
+			return distance;
+		}
+		
+		function findClosestValuedTile(){
+			var minDistance = 9999;
+			var currentTile;
+			for (var h = startingRow; h < endingRow; h++) {
+			  for (var w = 0; w < mineWidth; w++) {
+					if (!mineData[h][w].empty && mineData[h][w].type.value > 0 && getCharacterDistanceToTile(h, w) < minDistance){
+						minDistance = getCharacterDistanceToTile(h, w);
+						currentTile = mineData[h][w];
+					}
+				}
+			}
+			return currentTile;
 		}
 		
 		function clamp(min, max, val){
@@ -275,10 +402,6 @@
 			} else {
 				return Math.random() * (max - min) + min;
 			}
-		}
-		
-		function handleClick(h, w){
-			Dig(h, w);
 		}
 		
 		function getRandomColor(){
@@ -316,26 +439,59 @@
 			color: #FFFFFF;
 			font-size: 16pt;
 			font-weight: bold;
-			padding-top: 2px;
-			padding-left: 12px;
+			padding-top: 0px;
+			padding-left: 8px;
 			pointer-events:none;
 		}
 		
+		.table {
+			padding:0px; 
+			background-color: #200701; 
+			max-width: 50%;
+		}
+		
 		.tile {
-			width: 20px;
-			height: 20px;
+			width: 16px;
+			height: 16px;
 			opacity: 1;
 			background-color: black;
 			color: white;
 			background-image: url(data:image/png;base64,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);
 		}
+		
+		.mapTable {
+			background-color: #200701;
+			float: right;
+			margin: 5px;
+			cursor: pointer;
+		}
+		
+		.mapTable .tile {
+			width: 1px;
+			height: 1px;
+			background-image: none;
+		}
+		
+		.backpackTile {
+			width: 4px;
+			height: 4px;
+			padding: 5px;
+		}
 	</style>
 	<body style="overflow: hidden;" onload="init();">
-		<div>
-			<span id="points" class="points">Points: 0</span>
+		<div style="display: flex;">
+			<span id="points" class="points">Points: 10000000</span>
+			<table id="backpack" style="margin-left: 10px">
+				<tr id="backpackRow">
+				</tr>
+			</table>
 		</div>
-		<table cellspacing="0" style="padding:0px; background-color: #200701" id="table">
-		</table>
+		<div style="display: flex;">
+			<table cellspacing="0" class="table" id="table" onMouseDown="drawMapTable()" onMouseUp="clearMapTable();">
+			</table>
+			<table cellspacing="0" class="mapTable" id="mapTable">
+			</table>
+		</div>
 		<p id="character" class="character">■</p>
 	</body>
 </html>
