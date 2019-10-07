@@ -223,6 +223,16 @@
 		}
 		
 		function moveUp(h, w){
+                        if (w > mineWidth/2) {
+                                moveCharacter(h, w-1, chooseNextAIAction);
+                                return;
+                        }
+
+                        if (w < mineWidth/2) {
+                                moveCharacter(h, w+1, chooseNextAIAction);
+                                return;
+                        }
+
 			moveCharacter(h-1, w, chooseNextAIAction);
 		}
 		
@@ -241,7 +251,7 @@
 		}
 		
 		function wander(h, w){
-			var r = Math.random();
+			/* var r = Math.random();
 				
 			if (r > .85 && w < mineWidth - 1){
 				moveCharacter(h, (w + 1), chooseNextAIAction);
@@ -249,9 +259,9 @@
 				moveCharacter(h, (w - 1), chooseNextAIAction);
 			} else if (r > .65 && h > 0){
 				moveCharacter((h - 1), w, chooseNextAIAction);
-			} else {
+			} else { */
 				moveCharacter((h + 1), w, chooseNextAIAction);
-			}
+			//}
 		}
 		
 		function moveCharacter(h, w, doneCallback){
