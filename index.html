@@ -299,12 +299,12 @@
 					bottomRow = ((topChunkIndex + chunksOnScreen) * chunkHeight) + chunkHeight;
 					
 					if (h >= bottomRow - 1){
-						scrollChunks(1);
+						scrollChunks(2);
 						character.style.top = document.getElementById(h + "_" + w).offsetTop;
 					}
 					
 					if (h > 2 && h < topRow + 1){
-						scrollChunks(-1);
+						scrollChunks(-2);
 						character.style.top = document.getElementById(h + "_" + w).offsetTop;
 					}
 					// endregion Check Scrolling
