@@ -7,7 +7,7 @@
 		var clearedTiles = {};
 		
 		var backpack = [];
-		var backpackSize = 20;
+		var backpackSize = 8;
 		
 		var defaultSmoothness = 15; // Noise Scale. Lower numbers give more peaks.
 		
@@ -22,11 +22,16 @@
 		var table;
 		var character;
 		
-		var walkSpeed = 1;
+		// Upgradeables
+		var walkSpeed = .75;
+		var workSpeedSlowdown = .5;
+		var fullBackpackMultiplier = 1.5;
 		
 		var points = 0;
 		
 		var seed = 0;
+		
+		var debug = false;
 		
 		var tileTypes = [
 			{name: 'Dirt', color: '#52240c', value: 0, rarity: 0, minDepth: 0, maxDepth: 1001},
@@ -49,6 +54,25 @@
 			{name: 'Diamond', color: '#a9cfe1', value: 6, rarity: .96, minDepth: 400, maxDepth: 500, smoothness: 10},
 		];
 		
+		var upgrades = [
+			{name: "Bigger Backpack", level: 1, 
+				costFunc: (level) => {return 600 * level * level; },
+				upgradeFunc: () => { backpackSize *= Math.ceil(1.5); }
+			},
+			{name: "Better Shoes", level: 1, 
+				costFunc: (level) => {return 250 * level * level; },
+				upgradeFunc: () => { walkSpeed + .25;}
+			},
+			{name: "Better Tools", level: 1, 
+				costFunc: (level) => {return 500 * level * level; },
+				upgradeFunc: () => { workSpeedSlowdown *= .75; }
+			},
+			{name: "Lighter Pack", level: 1,
+				costFunc: (level) => {return 400 * level * level; },
+				upgradeFunc: () => { fullBackpackMultiplier *= 1.25 }
+			}
+		]
+		
 		function getTypeFromName(name){
 			return tileTypes.find( (e) => {return e.name == name;} );
 		}
@@ -66,10 +90,6 @@
 		// Generate the mine data from the top of the top chunk to the bottom of the last chunk
 		function generateMine(startingChunk = topChunkIndex, endingChunk = (topChunkIndex + chunksOnScreen) ){
 			var generatedMine = [];
-			
-			if (endingChunk > deepestChunkIndex){
-				deepestChunkIndex = endingChunk;
-			}
 			
 			tileTypes.forEach( (type, index) => {
 				startingRow = startingChunk * chunkHeight;
@@ -173,20 +193,26 @@
 		
 		function scrollChunks(amount) {
 			topChunkIndex += amount;
-			var bottomRow = ((topChunkIndex + chunksOnScreen) * chunkHeight) + chunkHeight;
+			
+			var bottomChunk = topChunkIndex + chunksOnScreen;
+			var bottomRow = (bottomChunk * chunkHeight) + chunkHeight;
+			
+			if (bottomChunk > deepestChunkIndex){
+				deepestChunkIndex = bottomChunk;
+				console.log("New depth reached: " + (deepestChunkIndex * chunkHeight) + "m");
+			}
 			
 			// Do we need to generate more ores?
 			if (Math.random() > .6 && bottomRow > 400 && topChunkIndex + chunksOnScreen >= deepestChunkIndex){
 				tileTypes.push(generateOreType());
 			}
 			
-			
 			mineData = generateMine(topChunkIndex, topChunkIndex + chunksOnScreen);
 			drawTable();
 		}
 		
 		function generateOreType(){
-			var prefixes = ["Oman", "Verd", "Romb", "Cand", "Faux", "Ameth", "Saph", "Rub", "Orichalch", "Ragnar", "Nyc"];
+			var prefixes = ["Oman", "Verd", "Romb", "Cand", "Faux", "Ameth", "Saph", "Rub", "Orichalch", "Ragnar", "Nyc", "Malar", "Bronc", "Emer", "Nolon", "Moss"];
 			var suffixes = ["yst", "ion", "ium", "ite", "onite", "itate"];
 			var name = prefixes[randomRange(0, prefixes.length - 1)] + suffixes[randomRange(0, suffixes.length - 1)];
 			var color = getRandomColor();
@@ -223,31 +249,42 @@
 		}
 		
 		function moveUp(h, w){
-                        if (w > mineWidth/2) {
-                                moveCharacter(h, w-1, chooseNextAIAction);
-                                return;
-                        }
+			if (w > mineWidth/2) {
+				moveCharacter(h, w-1, chooseNextAIAction);
+				return;
+			}
 
-                        if (w < mineWidth/2) {
-                                moveCharacter(h, w+1, chooseNextAIAction);
-                                return;
-                        }
+			if (w < mineWidth/2) {
+				moveCharacter(h, w+1, chooseNextAIAction);
+				return;
+			}
 
 			moveCharacter(h-1, w, chooseNextAIAction);
 		}
 		
 		function moveTowardsTile(h, w, targetTile){
-			if (targetTile.h > h){
-				moveCharacter(h+1, w, chooseNextAIAction)
-			} else if (targetTile.h < h){
-				moveCharacter(h-1, w, chooseNextAIAction)
-			} else if (targetTile.w > w){
-				moveCharacter(h, w+1, chooseNextAIAction)
-			} else if (targetTile.w < w){
-				moveCharacter(h, w-1, chooseNextAIAction)
-			} else {
-				wander(h, w);
+			if (debug){
+				document.getElementById(targetTile.h+"_"+targetTile.w).style.border="1px solid red";
 			}
+			
+			var hDist = targetTile.h - h;
+			var wDist = targetTile.w - w;
+			
+			// This theoretically could be done with clamps, but I couldn't get it to work
+			if (Math.abs(hDist) >= Math.abs(wDist)) {
+				if (hDist > 0){
+					moveCharacter(h + 1, w, chooseNextAIAction);
+				} else {
+					moveCharacter(h - 1, w, chooseNextAIAction);
+				}
+			} else {
+				if (wDist > 0){
+					moveCharacter(h, w + 1, chooseNextAIAction);
+				} else {
+					moveCharacter(h, w - 1, chooseNextAIAction);
+				}
+			}
+			
 		}
 		
 		function wander(h, w){
@@ -272,7 +309,7 @@
 			
 			var tileElement;
 			
-			function frame() {
+			function frame() {			
 				if (!tileElement){
 					tileElement = document.getElementById(h + "_" + w);
 				}
@@ -299,12 +336,12 @@
 					bottomRow = ((topChunkIndex + chunksOnScreen) * chunkHeight) + chunkHeight;
 					
 					if (h >= bottomRow - 1){
-						scrollChunks(2);
+						scrollChunks(Math.ceil(chunksOnScreen / 2));
 						character.style.top = document.getElementById(h + "_" + w).offsetTop;
 					}
 					
 					if (h > 2 && h < topRow + 1){
-						scrollChunks(-2);
+						scrollChunks(-Math.ceil(chunksOnScreen / 2));
 						character.style.top = document.getElementById(h + "_" + w).offsetTop;
 					}
 					// endregion Check Scrolling
@@ -314,6 +351,7 @@
 					// If we are at the top, empty the backpack!
 					if (h == 0){
 						sellOre();
+						buyAvailableUpgrade();
 					}
 					
 					doneCallback(h, w);
@@ -323,10 +361,11 @@
 				} else {
 					var speed = walkSpeed;
 					if (!mineData[h][w].empty){
-						speed *= .5;
+						speed -= (speed * workSpeedSlowdown);
 						
+						// If the ore has value, double it
 						if (mineData[h][w].type.value > 0){
-							speed *= .5;
+							speed -= (speed * workSpeedSlowdown);
 						}
 					} 
 					if (backpack.length >= backpackSize){
@@ -335,29 +374,31 @@
 					
 					
 					if (posY < tileElement.offsetTop){
-						character.style.top = (posY += speed) ;
+						character.style.top = (posY += clamp(0, speed, tileElement.offsetTop - posY));
 					} else if (posY > tileElement.offsetTop){
-						character.style.top = (posY -= speed);
+						character.style.top = (posY -= clamp(0, speed, posY - tileElement.offsetTop));
 					}
 					 
 					if (posX < tileElement.offsetLeft){
-						character.style.left = (posX += speed);
+						character.style.left = (posX += clamp(0, speed, tileElement.offsetLeft - posX));
 					} else if (posX > tileElement.offsetLeft){
-						character.style.left = (posX -= speed);
+						character.style.left = (posX -= clamp(0, speed, posX - tileElement.offsetLeft));
 					}
 				}
 			}	
 		}
 		
 		function Dig(h, w){
-			if (!mineData[h][w].empty && mineData[h][w].type.value > 0){
-				backpack.push(mineData[h][w].type);
-				drawBackpack();
+			if (!mineData[h][w].empty){
+				if (mineData[h][w].type.value > 0){
+					backpack.push(mineData[h][w].type);
+				}
+				clearedTiles[mineData[h][w].id] = true;
+				mineData[h][w].empty = true;
+				drawTable();
 			}
-		
-			clearedTiles[mineData[h][w].id] = true;
-			mineData[h][w].empty = true;
-			drawTable();
+			
+			drawBackpack();
 		}
 		
 		function sellOre(){
@@ -368,6 +409,36 @@
 			backpack = [];
 			document.getElementById("points").innerHTML = "Points: " + points;
 			drawBackpack();
+		}
+		
+		function buyAvailableUpgrade(){
+			var upgrade = getCheapestUpgrade();
+			var cost = upgrade.costFunc(upgrade.level);
+			if (points >= cost) {
+				points -= cost;
+				console.log("Purchased " + upgrade.name + " for " + cost + " coins!");
+				upgrade.level++;
+				upgrade.upgradeFunc();
+				
+				var nextUpgrade = getCheapestUpgrade();
+				var nextCost = upgrade.costFunc(upgrade.level);
+				console.log("Now the miner wants " + nextUpgrade.name + " for " + nextCost + " coins");
+			}
+		}
+		
+		function getCheapestUpgrade(){
+			var cheapestUpgrade;
+			var cheapestCost = Infinity;
+			
+			upgrades.forEach( (upgrade) => {
+				var cost = upgrade.costFunc(upgrade.level);
+				if (cost < cheapestCost){
+					cheapestUpgrade = upgrade;
+					cheapestCost = cost;
+				}
+			});
+			
+			return cheapestUpgrade;
 		}
 		
 	
@@ -382,18 +453,25 @@
 		function getCharacterDistanceToTile(h, w){
 			var mineTile = document.getElementById(h + "_" + w);
 			distX = mineTile.offsetLeft - character.offsetLeft;
-			distY = mineTile.offsetTop - character.offsetTop;
+			distY = mineTile.offsetTop - (character.offsetTop - 20);
 			distance = Math.sqrt(distX*distX + distY*distY);
 			return distance;
 		}
 		
 		function findClosestValuedTile(){
-			var minDistance = 9999;
+			var minDistance = Infinity;
 			var currentTile;
+			
+			var startingChunk = topChunkIndex
+			var startingRow = topChunkIndex * chunkHeight;
+			var endingChunk = (topChunkIndex + chunksOnScreen);
+			var endingRow = (endingChunk * chunkHeight) + chunkHeight;
+			
 			for (var h = startingRow; h < endingRow; h++) {
-			  for (var w = 0; w < mineWidth; w++) {
-					if (!mineData[h][w].empty && mineData[h][w].type.value > 0 && getCharacterDistanceToTile(h, w) < minDistance){
-						minDistance = getCharacterDistanceToTile(h, w);
+				for (var w = 0; w < mineWidth; w++) {
+					var dist = getCharacterDistanceToTile(h, w);
+					if (!mineData[h][w].empty && mineData[h][w].type.value > 0 && dist < minDistance){
+						minDistance = dist;
 						currentTile = mineData[h][w];
 					}
 				}
@@ -453,7 +531,7 @@
 			font-size: 16pt;
 			font-weight: bold;
 			padding-top: 0px;
-			padding-left: 8px;
+			padding-left: 9px;
 			pointer-events:none;
 		}
 		
@@ -493,7 +571,7 @@
 	</style>
 	<body style="overflow: hidden;" onload="init();">
 		<div style="display: flex;">
-			<span id="points" class="points">Points: 10000000</span>
+			<span id="points" class="points">Coins: 0</span>
 			<table id="backpack" style="margin-left: 10px">
 				<tr id="backpackRow">
 				</tr>
