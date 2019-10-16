@@ -61,7 +61,7 @@
 			},
 			{name: "Better Shoes", level: 1, 
 				costFunc: (level) => {return 250 * level * level; },
-				upgradeFunc: () => { walkSpeed + .25;}
+				upgradeFunc: () => { walkSpeed += .25;}
 			},
 			{name: "Better Tools", level: 1, 
 				costFunc: (level) => {return 500 * level * level; },
@@ -85,6 +85,8 @@
 			mineData = generateMine();
 			drawTable();
 			startAI();
+                        var firstUpgrade = getCheapestUpgrade();
+                        console.log("The miner wants " + firstUpgrade.name + " for " + firstUpgrade.costFunc(firstUpgrade.level) + " coins.");
 		}
 		
 		// Generate the mine data from the top of the top chunk to the bottom of the last chunk
@@ -421,7 +423,7 @@
 				upgrade.upgradeFunc();
 				
 				var nextUpgrade = getCheapestUpgrade();
-				var nextCost = upgrade.costFunc(upgrade.level);
+				var nextCost = nextUpgrade.costFunc(nextUpgrade.level);
 				console.log("Now the miner wants " + nextUpgrade.name + " for " + nextCost + " coins");
 			}
 		}
