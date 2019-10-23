@@ -40,11 +40,11 @@
 			{name: 'Stone', color: '#4d3c3c', value: 0, rarity: .9, minDepth: 3, maxDepth: 120, smoothness: 30},
 			
 			// Deep stuff
-			{name: 'DeepDirt', color: '#401c0a', value: 0, rarity: 0, minDepth: 1000, maxDepth: 2001},
-			{name: 'DeepDarkDirt', color: '#2f1406', value: 0, rarity: 0, minDepth: 1000, maxDepth: -1},
-			{name: 'DeepStone', color: '#2d2d3a', value: 0, rarity: .8, minDepth: 1000, maxDepth: -1},
-			{name: 'DeepDeepDirt', color: '#38000e', value: 0, rarity: 0, minDepth: 2000, maxDepth: 3001},
-			{name: 'Void', color: '#100004', value: 0, rarity: 0, minDepth: 3000, maxDepth: -1},
+			{name: 'DeepDirt', color: '#401c0a', value: 0, rarity: 0, minDepth: 2000, maxDepth: 3001},
+			{name: 'DeepDarkDirt', color: '#2f1406', value: 0, rarity: 0, minDepth: 2000, maxDepth: -1},
+			{name: 'DeepStone', color: '#2d2d3a', value: 0, rarity: .8, minDepth: 2000, maxDepth: -1},
+			{name: 'DeepDeepDirt', color: '#38000e', value: 0, rarity: 0, minDepth: 3000, maxDepth: 4001},
+			{name: 'Void', color: '#100004', value: 0, rarity: 0, minDepth: 4000, maxDepth: -1},
 			
 			// Ores
 			{name: 'Coal', color: '#1b1b23', value: 1, rarity: .8, minDepth: 3, maxDepth: 120},
@@ -57,7 +57,7 @@
 		var upgrades = [
 			{name: "Bigger Backpack", level: 1, 
 				costFunc: (level) => {return 600 * level * level; },
-				upgradeFunc: () => { backpackSize *= Math.ceil(1.5); }
+				upgradeFunc: () => { backpackSize = Math.ceil(backpackSize * 1.5); }
 			},
 			{name: "Better Shoes", level: 1, 
 				costFunc: (level) => {return 250 * level * level; },
@@ -540,7 +540,7 @@
 		.table {
 			padding:0px; 
 			background-color: #200701; 
-			max-width: 50%;
+			max-width: 80%;
 		}
 		
 		.tile {
