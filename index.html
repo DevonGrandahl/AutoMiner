@@ -10,6 +10,7 @@
 		var backpackSize = 8;
 		
 		var defaultSmoothness = 15; // Noise Scale. Lower numbers give more peaks.
+		var dirtColor = "#52240c";
 		
 		var mineWidth = 20;
 		var chunkHeight = 8;
@@ -34,7 +35,7 @@
 		var debug = false;
 		
 		var tileTypes = [
-			{name: 'Dirt', color: '#52240c', value: 0, rarity: 0, minDepth: 0, maxDepth: 2001},
+			{name: 'Dirt', color: dirtColor, value: 0, rarity: 0, minDepth: 0, maxDepth: 2001},
 			{name: 'DarkDirt', color: '#4c1e07', value: 0, rarity: .6, minDepth: 0, maxDepth: 2001},
 			{name: 'Grass', color: '#6cd900', value: 0, rarity: 0, minDepth: 0, maxDepth: 0},
 			{name: 'Stone', color: '#4d3c3c', value: 0, rarity: .9, minDepth: 3, maxDepth: 120, smoothness: 30},
@@ -48,6 +49,7 @@
 			
 			// Ores
 			{name: 'Coal', color: '#1b1b23', value: 1, rarity: .8, minDepth: 3, maxDepth: 120},
+			{name: 'Ruby', color: '#FF2222', value: 1000, rarity: .998, minDepth: 10, maxDepth: 500, smoothness: 10, ingot: 1},
 			{name: 'Copper', color: '#da8a67', value: 2, rarity: .83, minDepth: 12, maxDepth: 300},
 			{name: 'Silver', color: '#bbbbcc', value: 3, rarity: .88, minDepth: 120, maxDepth: 330},
 			{name: 'Gold', color: '#cccc33', value: 4, rarity: .87, minDepth: 250, maxDepth: 450, smoothness: 20},
@@ -86,7 +88,8 @@
 			drawTable();
 			startAI();
                         var firstUpgrade = getCheapestUpgrade();
-                        console.log("The miner wants " + firstUpgrade.name + " for " + firstUpgrade.costFunc(firstUpgrade.level) + " coins.");
+						
+						updateMsgText("The miner wants " + firstUpgrade.name + " for " + firstUpgrade.costFunc(firstUpgrade.level) + " coins.");
 		}
 		
 		// Generate the mine data from the top of the top chunk to the bottom of the last chunk
@@ -185,9 +188,12 @@
 			
 			cellString += 
 			" class='tile' " +
-			" style='background-color:" + tileData.type.color + "; opacity:" + (tileData.empty ? '.12' : '1') + "; '" +
+			" style='" +
+			"background-color:" + (tileData.type.ingot ? dirtColor : tileData.type.color) + ";" +
+			"color:" + tileData.type.color + ";" +
+			"opacity:" + (tileData.empty ? '.12' : '1') + "; '" +
 			">" +
-			'' + 
+			(tileData.type.ingot ? "♦" : "") +
 			"</td>";
 			
 			return cellString;
@@ -409,22 +415,28 @@
 			});
 			
 			backpack = [];
-			document.getElementById("points").innerHTML = "Points: " + points;
+			document.getElementById("points").innerHTML = "Coins: " + points;
 			drawBackpack();
 		}
 		
 		function buyAvailableUpgrade(){
 			var upgrade = getCheapestUpgrade();
 			var cost = upgrade.costFunc(upgrade.level);
+			var msgText = "";
 			if (points >= cost) {
 				points -= cost;
-				console.log("Purchased " + upgrade.name + " for " + cost + " coins!");
+				msgText = "Purchased " + upgrade.name + " for " + cost + " coins!";
 				upgrade.level++;
 				upgrade.upgradeFunc();
 				
 				var nextUpgrade = getCheapestUpgrade();
 				var nextCost = nextUpgrade.costFunc(nextUpgrade.level);
-				console.log("Now the miner wants " + nextUpgrade.name + " for " + nextCost + " coins");
+				msgText += "</br>Now the miner wants " + nextUpgrade.name + " for " + nextCost + " coins";
+				updateMsgText(msgText);
+				
+				// Keep buying if we can
+				buyAvailableUpgrade();
+				document.getElementById("points").innerHTML = "Coins: " + points;
 			}
 		}
 		
@@ -441,6 +453,10 @@
 			});
 			
 			return cheapestUpgrade;
+		}
+		
+		function updateMsgText(msg){
+			document.getElementById("msg").innerHTML = msg;
 		}
 		
 	
@@ -586,5 +602,8 @@
 			</table>
 		</div>
 		<p id="character" class="character">■</p>
+		<div style="display: flex;">
+			<p id="msg" class="msg" style="font-size: 9pt; color: #777777">Goal</p>
+		</div>
 	</body>
 </html>
